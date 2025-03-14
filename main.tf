@@ -60,7 +60,7 @@ resource "aws_instance" "worker_ansible" {
   ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS (Mumbai)
   instance_type   = "t2.medium"
   subnet_id       = data.aws_subnet.selected.id
-  security_groups = [aws_security_group.k8s_sg.name]
+  security_groups = [aws_security_group.k8s_sg.id]
   key_name        = "mohanm"
 
   tags = {
