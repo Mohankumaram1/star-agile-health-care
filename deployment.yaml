@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: my-app
-          image: nginx
+          image: mohankumar12/health-care
           ports:
             - containerPort: 80
 
@@ -29,7 +29,7 @@ spec:
     app: my-app
   ports:
     - protocol: TCP
-      port: 80       # Internal Cluster Port
-      targetPort: 80  # Container Port
+      port: 8082      # Internal Cluster Port
+      targetPort: 8082  # Container Port
       nodePort: 30008 # Exposed on Worker Node
 
