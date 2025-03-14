@@ -2,24 +2,17 @@ provider "aws" {
   region = "ap-south-1"  # Mumbai Region
 }
 
-# Fetch Default VPC
+# Use Default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# Fetch a Single Default Subnet in Mumbai Region
-data "aws_subnets" "default_subnets" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
+# Get Default Subnet
+data "aws_subnet" "default" {
+  vpc_id = data.aws_vpc.default.id
 }
 
-data "aws_subnet" "selected" {
-  id = tolist(data.aws_subnets.default_subnets.ids)[0]  # Pick the first subnet
-}
-
-# Security Group for Kubernetes and Ansible
+# Security Group for SSH, Kubernetes, and Ansible
 resource "aws_security_group" "k8s_sg" {
   vpc_id = data.aws_vpc.default.id
 
@@ -28,7 +21,7 @@ resource "aws_security_group" "k8s_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Change to Jenkins IP if possible
+    cidr_blocks = ["0.0.0.0/0"]  # Change to Jenkins Machine IP for security
   }
 
   # Allow Kubernetes API Server (6443) and NodePort range
@@ -55,29 +48,44 @@ resource "aws_security_group" "k8s_sg" {
   }
 }
 
-# Create Kubernetes Worker + Ansible Node
+# Create Kubernetes Worker + Ansible Worker Node
 resource "aws_instance" "worker_ansible" {
   ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS (Mumbai)
   instance_type   = "t2.medium"
-  subnet_id       = data.aws_subnet.selected.id
-  security_groups = [aws_security_group.k8s_sg.id]
+  subnet_id       = data.aws_subnet.default.id
+  security_group_ids = [aws_security_group.k8s_sg.id]  # Fixed Issue
   key_name        = "mohanm"
 
   tags = {
     Name = "K8s-Worker-Ansible"
   }
 
-  # Install Kubernetes, Docker, and Ansible
+  # Install Kubernetes, Ansible & Setup Auto Join
   user_data = <<-EOF
     #!/bin/bash
     sudo apt update -y
-    sudo apt install -y docker.io kubeadm kubelet kubectl ansible
-    sudo systemctl enable docker
-    sudo systemctl start docker
+    sudo apt install -y kubeadm kubelet kubectl ansible
+
+    # Fetch Kubernetes Join Command from Jenkins Master
+    echo "[TASK] Fetching kubeadm join command"
+    JOIN_CMD=$(ssh -o StrictHostKeyChecking=no -i /home/ubuntu/.ssh/mohanm.pem ubuntu@<JENKINS_MASTER_IP> "kubeadm token create --print-join-command")
+
+    # Execute Join Command
+    echo "[TASK] Joining Kubernetes Cluster"
+    sudo $JOIN_CMD
   EOF
 }
 
-# Output Instance IP
+# Generate Dynamic Ansible Inventory
+resource "local_file" "ansible_inventory" {
+  content  = <<EOF
+[worker]
+${aws_instance.worker_ansible.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/mohanm.pem
+EOF
+  filename = "inventory.ini"
+}
+
+# Output Worker Node IP
 output "worker_ansible_ip" {
   value = aws_instance.worker_ansible.public_ip
 }
