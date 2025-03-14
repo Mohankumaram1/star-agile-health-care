@@ -1,0 +1,9 @@
+- name: Deploy Banking App
+  hosts: master
+  become: yes
+  tasks:
+    - name: Deploy Application
+      shell: kubectl create deployment banking-app --image=cbabu85/bankingfinance:3.0
+
+    - name: Expose App
+      shell: kubectl expose deployment banking-app --type=NodePort --port=8081
