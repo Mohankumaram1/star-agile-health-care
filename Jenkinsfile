@@ -1,22 +1,25 @@
 pipeline {
     agent any
     stages {
-        stage('Provision Infrastructure') {
+        stage('Terraform Apply') {
             steps {
-                sh "terraform init"
-                sh "terraform apply -auto-approve"
+                sh 'terraform init'
+                sh 'terraform apply -auto-approve'
             }
         }
-        stage('Configure Kubernetes') {
+        stage('Ansible Configure Worker') {
             steps {
-                sh "ansible-playbook -i inventory install-k8s.yml"
-                sh "ansible-playbook -i inventory setup-master.yml"
-                sh "ansible-playbook -i inventory setup-workers.yml"
+                sh 'ansible-playbook -i inventory ansible_login.yml'
             }
         }
-        stage('Deploy Banking App') {
+        stage('Join Worker to Kubernetes') {
             steps {
-                sh "ansible-playbook -i inventory deploy-app.yml"
+                sh 'ansible-playbook -i inventory kube_join.yml'
+            }
+        }
+        stage('Deploy Kubernetes Application') {
+            steps {
+                sh 'ansible-playbook -i inventory deploy_app.yml'
             }
         }
     }
