@@ -1,0 +1,25 @@
+- name: Initialize Kubernetes Master
+  hosts: master
+  become: yes
+  tasks:
+    - name: Initialize Kubernetes
+      command: kubeadm init --pod-network-cidr=192.168.1.0/16
+      register: kubeadm_output
+
+    - name: Setup kubeconfig
+      shell: |
+        mkdir -p $HOME/.kube
+        cp /etc/kubernetes/admin.conf $HOME/.kube/config
+        chown $(id -u):$(id -g) $HOME/.kube/config
+
+    - name: Deploy Calico CNI
+      command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
+    - name: Get Join Command
+      shell: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: Save Join Command
+      copy:
+        content: "{{ join_command.stdout }}"
+        dest: /tmp/k8s-join.sh
