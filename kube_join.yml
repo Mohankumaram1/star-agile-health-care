@@ -1,0 +1,12 @@
+- name: Join Kubernetes Worker to Master
+  hosts: worker
+  become: true
+  tasks:
+    - name: Extract Join Command from Master
+      delegate_to: master
+      command: awk '/kubeadm join/ {print}' /home/ubuntu/kubeadm-init.log
+      register: join_command
+
+    - name: Execute Join Command on Worker
+      command: "{{ join_command.stdout }}"
+      when: join_command.stdout is defined
