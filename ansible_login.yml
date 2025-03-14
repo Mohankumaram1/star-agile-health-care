@@ -1,0 +1,15 @@
+- name: Configure Ansible Worker Node
+  hosts: worker
+  become: true
+  tasks:
+    - name: Create Ansible User
+      user:
+        name: ansible
+        shell: /bin/bash
+        groups: sudo
+
+    - name: Copy SSH Key for Ansible User
+      authorized_key:
+        user: ansible
+        key: "{{ lookup('file', '/home/ubuntu/.ssh/id_rsa.pub') }}"
+        state: present
