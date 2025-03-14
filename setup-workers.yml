@@ -1,0 +1,12 @@
+- name: Join Worker Nodes to Kubernetes Cluster
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Fetch Join Command
+      fetch:
+        src: /tmp/k8s-join.sh
+        dest: ./k8s-join.sh
+        flat: yes
+
+    - name: Execute Join Command
+      command: sh ./k8s-join.sh
