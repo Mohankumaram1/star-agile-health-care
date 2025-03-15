@@ -9,7 +9,8 @@ pipeline {
         }
         stage('Set Permissions for SSH Key') {
             steps {
-                sh 'chmod 400 mohanm.pem'  // Ensure correct SSH key permissions
+                sh 'chmod 400 mohanm.pem' // Ensure correct SSH key permissions
+                sh 'chmod 777 mohankey.pem'
             }
         }
         stage('Ansible Configure Worker') {
