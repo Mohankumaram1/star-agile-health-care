@@ -1,30 +1,41 @@
+# -----------------------------
+# 1️⃣ Provider Configuration
+# -----------------------------
 provider "aws" {
-  region = "ap-south-1"  # Mumbai Region
+  region     = "ap-south-1" # Mumbai
 }
 
-# Use Default VPC
+# -----------------------------
+# 2️⃣ Get Default VPC & Specific Subnet
+# -----------------------------
 data "aws_vpc" "default" {
   default = true
 }
 
-# Get Default Subnet
-data "aws_subnet" "default" {
+data "aws_subnet" "selected" {
   vpc_id = data.aws_vpc.default.id
+
+  filter {
+    name   = "availability-zone"
+    values = ["ap-south-1a"]  # Ensure only 1 subnet is selected
+  }
 }
 
-# Security Group for SSH, Kubernetes, and Ansible
+# -----------------------------
+# 3️⃣ Security Group for K8s, Ansible, SSH
+# -----------------------------
 resource "aws_security_group" "k8s_sg" {
   vpc_id = data.aws_vpc.default.id
 
-  # Allow SSH from Jenkins Machine (Ansible Master)
+  # Allow SSH (22) from Jenkins (Ansible Master)
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Change to Jenkins Machine IP for security
+    cidr_blocks = ["0.0.0.0/0"]  # Replace with Jenkins IP if possible
   }
 
-  # Allow Kubernetes API Server (6443) and NodePort range
+  # Allow Kubernetes API Server (6443)
   ingress {
     from_port   = 6443
     to_port     = 6443
@@ -32,6 +43,7 @@ resource "aws_security_group" "k8s_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow NodePort Services (30000-32767)
   ingress {
     from_port   = 30000
     to_port     = 32767
@@ -48,44 +60,39 @@ resource "aws_security_group" "k8s_sg" {
   }
 }
 
-# Create Kubernetes Worker + Ansible Worker Node
+# -----------------------------
+# 4️⃣ Create Kubernetes Worker + Ansible Node
+# -----------------------------
 resource "aws_instance" "worker_ansible" {
   ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS (Mumbai)
   instance_type   = "t2.medium"
-  subnet_id       = data.aws_subnet.default.id
-  vpc_security_group_ids = [aws_security_group.k8s_sg.id]  # Fixed Issue
+  subnet_id       = data.aws_subnet.selected.id  # Use the selected subnet
+  vpc_security_group_ids = [aws_security_group.k8s_sg.id]
   key_name        = "mohanm"
 
   tags = {
     Name = "K8s-Worker-Ansible"
   }
 
-  # Install Kubernetes, Ansible & Setup Auto Join
+  # Install Kubernetes and Ansible Worker
   user_data = <<-EOF
     #!/bin/bash
     sudo apt update -y
-    sudo apt install -y kubeadm kubelet kubectl ansible
+    sudo apt install -y docker.io kubeadm kubelet kubectl ansible -y
+    sudo systemctl enable docker && sudo systemctl start docker
+    sudo systemctl enable kubelet && sudo systemctl start kubelet
 
-    # Fetch Kubernetes Join Command from Jenkins Master
-    echo "[TASK] Fetching kubeadm join command"
-    JOIN_CMD=$(ssh -o StrictHostKeyChecking=no -i /home/ubuntu/.ssh/mohanm.pem ubuntu@<JENKINS_MASTER_IP> "kubeadm token create --print-join-command")
-
-    # Execute Join Command
-    echo "[TASK] Joining Kubernetes Cluster"
-    sudo $JOIN_CMD
+    # Get the Kubeadm Join command from Jenkins Master
+    KUBE_JOIN_CMD=$(curl -s http://JENKINS_MASTER_IP:5000/join)
+    if [ -n "$KUBE_JOIN_CMD" ]; then
+      sudo $KUBE_JOIN_CMD
+    fi
   EOF
 }
 
-# Generate Dynamic Ansible Inventory
-resource "local_file" "ansible_inventory" {
-  content  = <<EOF
-[worker]
-${aws_instance.worker_ansible.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/mohanm.pem
-EOF
-  filename = "inventory.ini"
-}
-
-# Output Worker Node IP
+# -----------------------------
+# 5️⃣ Output Worker IP
+# -----------------------------
 output "worker_ansible_ip" {
   value = aws_instance.worker_ansible.public_ip
 }
