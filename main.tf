@@ -59,6 +59,7 @@ resource "aws_instance" "worker_ansible" {
   subnet_id       = data.aws_subnet.selected.id
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
   key_name        = "mohanm"
+  associate_public_ip_address = true  # Enable public IP
 
   tags = {
     Name = "K8s-Worker-Ansible"
