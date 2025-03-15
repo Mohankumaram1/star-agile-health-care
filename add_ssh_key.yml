@@ -1,5 +1,5 @@
 - name: Copy SSH Key for devops
-  hosts: workers
+  hosts: all
   become: yes
   tasks:
     - name: Add SSH key for devops
