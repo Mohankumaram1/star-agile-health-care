@@ -1,0 +1,9 @@
+- name: Copy SSH Key for devops
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Add SSH key for devops
+      authorized_key:
+        user: devops
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+        state: present
