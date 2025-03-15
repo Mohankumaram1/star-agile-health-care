@@ -1,5 +1,5 @@
 - name: Configure Kubernetes Worker Node
-  hosts: worker_nodes
+  hosts: all
   become: true
   connection: ssh
 
