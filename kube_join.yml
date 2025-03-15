@@ -1,5 +1,5 @@
 - name: Join Kubernetes Worker to Master
-  hosts: worker
+  hosts: all
   become: true
   tasks:
     - name: Extract Join Command from Master
