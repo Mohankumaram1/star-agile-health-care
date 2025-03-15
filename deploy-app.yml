@@ -1,5 +1,5 @@
 - name: Deploy Application on Kubernetes
-  hosts: master
+  hosts: all
   become: true
   tasks:
     - name: Apply Kubernetes Deployment
