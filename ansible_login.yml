@@ -1,5 +1,5 @@
 - name: Configure Ansible Worker Node
-  hosts: worker
+  hosts: all
   become: true
   tasks:
     - name: Create Ansible User
