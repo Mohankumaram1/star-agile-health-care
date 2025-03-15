@@ -17,7 +17,7 @@ data "aws_subnet" "selected" {
 
   filter {
     name   = "availability-zone"
-    values = ["ap-south-1a"]  # Ensure only 1 subnet is selected
+    values = ["ap-south-1b"]  # Ensure only 1 subnet is selected
   }
 }
 
