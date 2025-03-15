@@ -4,12 +4,12 @@
   tasks:
     - name: Create Ansible User
       user:
-        name: ansible
+        name: devops
         shell: /bin/bash
         groups: sudo
 
     - name: Copy SSH Key for Ansible User
       authorized_key:
-        user: ansible
+        user: devops
         key: "{{ lookup('file', '/home/ubuntu/.ssh/id_rsa.pub') }}"
         state: present
