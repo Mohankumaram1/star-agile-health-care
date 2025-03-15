@@ -14,7 +14,9 @@ pipeline {
         }
         stage('Ansible Configure Worker') {
             steps {
+                sh 'ansible-playbook -i inventory add_devops.yml'
                 sh 'ansible-playbook -i inventory ansible_login.yml'
+                sh 'ansible-playbook -i inventory add_ssh_key.yml'
             }
         }
         stage('Join Worker to Kubernetes') {
