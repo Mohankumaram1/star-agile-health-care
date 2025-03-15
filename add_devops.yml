@@ -1,5 +1,5 @@
 - name: Add devops user on worker nodes
-  hosts: workers
+  hosts: all
   become: yes
   tasks:
     - name: Create devops user
