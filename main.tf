@@ -1,14 +1,13 @@
-# PROVIDER CONFIGURATION
 provider "aws" {
-  region     = "ap-south-1"  # Mumbai region
+  region = "ap-south-1"
 }
 
-# DEFAULT VPC
+# Get Default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# SELECT A SINGLE PUBLIC SUBNET
+# Get a specific Public Subnet in the default VPC
 data "aws_subnet" "selected" {
   vpc_id = data.aws_vpc.default.id
 
@@ -16,21 +15,26 @@ data "aws_subnet" "selected" {
     name   = "map-public-ip-on-launch"
     values = ["true"]
   }
+
+  filter {
+    name   = "availability-zone"
+    values = ["ap-south-1b"]  # Change if needed
+  }
 }
 
-# SECURITY GROUP FOR SSH, KUBERNETES, ANSIBLE
+# Security Group for Kubernetes and Ansible
 resource "aws_security_group" "k8s_sg" {
   vpc_id = data.aws_vpc.default.id
 
-  # Allow SSH from Jenkins Machine (Ansible Master)
+  # Allow SSH
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Change to Jenkins IP if possible
+    cidr_blocks = ["0.0.0.0/0"]  # Change to restrict access
   }
 
-  # Allow Kubernetes API Server (6443) and NodePort range
+  # Allow Kubernetes API Server
   ingress {
     from_port   = 6443
     to_port     = 6443
@@ -38,6 +42,7 @@ resource "aws_security_group" "k8s_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow NodePort Range
   ingress {
     from_port   = 30000
     to_port     = 32767
@@ -54,57 +59,52 @@ resource "aws_security_group" "k8s_sg" {
   }
 }
 
-# CREATE KUBERNETES MASTER NODE
+# Kubernetes Master Node
 resource "aws_instance" "k8s_master" {
-  ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS (Mumbai)
+  ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS
   instance_type   = "t2.medium"
   subnet_id       = data.aws_subnet.selected.id
-  vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  security_groups = [aws_security_group.k8s_sg.name]
   key_name        = "mohanm"
 
   tags = {
     Name = "K8s-Master"
   }
 
+  # Bootstrap Kubernetes Master
   user_data = <<-EOF
     #!/bin/bash
     sudo apt update -y
-    sudo apt install -y kubeadm kubelet kubectl docker.io
-    sudo systemctl enable docker
-    sudo systemctl start docker
-    sudo kubeadm init --pod-network-cidr=192.168.0.0/16 | tee /home/ubuntu/kubeadm_init.log
-    mkdir -p /home/ubuntu/.kube
-    cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
-    chown ubuntu:ubuntu /home/ubuntu/.kube/config
+    sudo apt install -y kubeadm kubelet kubectl
+    kubeadm init --apiserver-advertise-address=$(curl -s ifconfig.me) --pod-network-cidr=192.168.0.0/16
   EOF
 }
 
-# CREATE WORKER + ANSIBLE NODE
-resource "aws_instance" "worker_ansible" {
-  ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS (Mumbai)
+# Kubernetes Worker + Ansible Node
+resource "aws_instance" "k8s_worker_ansible" {
+  ami             = "ami-00bb6a80f01f03502"  # Ubuntu 22.04 LTS
   instance_type   = "t2.medium"
   subnet_id       = data.aws_subnet.selected.id
-  vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  security_groups = [aws_security_group.k8s_sg.name]
   key_name        = "mohanm"
 
   tags = {
     Name = "K8s-Worker-Ansible"
   }
 
+  # Install Kubernetes Worker & Ansible
   user_data = <<-EOF
     #!/bin/bash
     sudo apt update -y
-    sudo apt install -y kubeadm kubelet kubectl docker.io ansible
-    sudo systemctl enable docker
-    sudo systemctl start docker
+    sudo apt install -y kubeadm kubelet kubectl ansible
   EOF
 }
 
-# OUTPUTS
+# Output Instance IPs
 output "k8s_master_ip" {
   value = aws_instance.k8s_master.public_ip
 }
 
-output "worker_ansible_ip" {
-  value = aws_instance.worker_ansible.public_ip
+output "k8s_worker_ansible_ip" {
+  value = aws_instance.k8s_worker_ansible.public_ip
 }
