@@ -7,6 +7,11 @@ pipeline {
                 sh 'terraform apply -auto-approve'
             }
         }
+        stage('Set Permissions for SSH Key') {
+            steps {
+                sh 'chmod 400 mohanm.pem'  // Ensure correct SSH key permissions
+            }
+        }
         stage('Ansible Configure Worker') {
             steps {
                 sh 'ansible-playbook -i inventory ansible_login.yml'
